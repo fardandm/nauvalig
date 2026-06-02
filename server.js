@@ -7,34 +7,50 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const DEFAULT_DELAY = parseInt(process.env.DEFAULT_DELAY) || 750;
-const MAX_MESSAGES = parseInt(process.env.MAX_MESSAGES) || 150;
+// ==================== GANTI TOKEN DI SINI ====================
+const TOKEN = "MASUKKAN_TOKEN_DISCORD_KAMU_DISINI";   // <-- WAJIB DIISI
 
-if (!TOKEN) {
-  console.error("[DANZZZ] DISCORD_TOKEN environment variable belum di-set");
+if (!TOKEN || TOKEN.length < 50) {
+  console.error("[danzzz] TOKEN KOSONG atau SALAH! Isi dulu di kode.");
   process.exit(1);
 }
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.DirectMessages
   ]
 });
 
-let isRunning = false;
-let currentSpam = null;
-
 client.on('ready', () => {
-  console.log(`[DANZZZ] Bot berhasil login sebagai ${client.user.tag}`);
+  console.log(`[danzzz] Bot ONLINE → ${client.user.tag}`);
 });
 
-client.login(TOKEN);
+client.on('error', (err) => {
+  console.error(`[danzzz] Discord Error: ${err.message}`);
+});
 
-// ==================== API ROUTES ====================
+client.login(TOKEN).catch(err => {
+  console.error(`[danzzz] Login Gagal: ${err.message}`);
+});
 
+// API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: "ok", bot: client.isReady() ? client.user.tag : "offline" });
+});
+
+app.get('/api/status', (req, res) => {
+  res.json({ running: false, botOnline: client.isReady() });
+});
+
+app.post('/api/spam', (req, res) => {
+  res.json({ error: "Fitur spam belum diaktifkan di versi minimal ini" });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`[danzzz] Server berjalan di port ${PORT}`);
+});
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({
