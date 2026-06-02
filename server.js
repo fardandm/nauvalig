@@ -7,11 +7,11 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// ==================== GANTI TOKEN DI SINI ====================
-const TOKEN = "MASUKKAN_TOKEN_DISCORD_KAMU_DISINI";   // <-- WAJIB DIISI
+// ==================== TOKEN ====================
+const TOKEN = "MTM3MjkxMTg2Mzg3MTk2NzI0Mg.GpijQ9.0DrexohskABAo0O7y1Ke45sALEqmvpqNtFVk2w";
 
 if (!TOKEN || TOKEN.length < 50) {
-  console.error("[danzzz] TOKEN KOSONG atau SALAH! Isi dulu di kode.");
+  console.error("[danzzz] TOKEN BELUM DIISI!");
   process.exit(1);
 }
 
@@ -22,6 +22,18 @@ const client = new Client({
   ]
 });
 
+let isRunning = false;
+
+// ==================== ANTI CRASH HANDLER ====================
+process.on('unhandledRejection', (reason, promise) => {
+  console.log('[danzzz] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.log('[danzzz] Uncaught Exception:', err.message);
+});
+
+// Discord Event
 client.on('ready', () => {
   console.log(`[danzzz] Bot ONLINE → ${client.user.tag}`);
 });
@@ -30,11 +42,75 @@ client.on('error', (err) => {
   console.error(`[danzzz] Discord Error: ${err.message}`);
 });
 
-client.login(TOKEN).catch(err => {
-  console.error(`[danzzz] Login Gagal: ${err.message}`);
+client.on('disconnect', () => {
+  console.log(`[danzzz] Bot terputus, mencoba reconnect...`);
 });
 
-// API Routes
+client.login(TOKEN).catch(err => {
+  console.error(`[danzzz] Login gagal: ${err.message}`);
+});
+
+// ==================== API ====================
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: "ok", 
+    bot: client.isReady() ? client.user.tag : "offline",
+    uptime: process.uptime()
+  });
+});
+
+app.get('/api/status', (req, res) => {
+  res.json({ running: isRunning, botOnline: client.isReady() });
+});
+
+app.post('/api/spam', async (req, res) => {
+  const { targetId, message, count, delay } = req.body;
+
+  if (!targetId || !message) {
+    return res.status(400).json({ error: "targetId dan message wajib" });
+  }
+
+  if (isRunning) {
+    return res.status(409).json({ error: "Spam sedang berjalan" });
+  }
+
+  isRunning = true;
+  let sent = 0;
+  const total = Math.min(parseInt(count) || 100, 200);
+  const delayMs = parseInt(delay) || 800;
+
+  console.log(`[danzzz] Memulai spam ke ${targetId} | Total: ${total}`);
+
+  const interval = setInterval(async () => {
+    if (sent >= total) {
+      clearInterval(interval);
+      isRunning = false;
+      console.log(`[danzzz] Spam selesai ke ${targetId}`);
+      return;
+    }
+
+    try {
+      const user = await client.users.fetch(targetId);
+      await user.send(message);
+      sent++;
+      console.log(`[danzzz] Terkirim \( {sent}/ \){total}`);
+    } catch (err) {
+      console.log(`[danzzz] Error: ${err.message}`);
+    }
+  }, delayMs);
+
+  res.json({ status: "success", targetId, total, delay: delayMs });
+});
+
+app.post('/api/stop', (req, res) => {
+  isRunning = false;
+  res.json({ status: "stopped" });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`[danzzz] Server berjalan di port ${PORT}`);
+});// API Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: "ok", bot: client.isReady() ? client.user.tag : "offline" });
 });
